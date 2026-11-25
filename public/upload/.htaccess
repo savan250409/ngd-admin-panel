@@ -1,0 +1,14 @@
+# Uploaded content is data only — never execute scripts from here.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+<FilesMatch "\.(php|phtml|phar|php\d|pht|cgi|pl|py|sh)$">
+    Require all denied
+</FilesMatch>
+Options -Indexes -ExecCGI
