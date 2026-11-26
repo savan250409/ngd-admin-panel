@@ -44,8 +44,8 @@ class DemoContentSeeder extends Seeder
         $this->cleanup();
         $this->seedApps();
 
-        $this->seedFrames();
-        $this->seedSimple('template', TemplateCategory::class, Template::class);
+        $this->seedPairs('frame', FrameCategory::class, Frame::class, 'frame', withCount: false);
+        $this->seedPairs('template', TemplateCategory::class, Template::class, 'template', withCount: true);
         $this->seedDynamicFrames();
         $this->seedGallery('baby-backdrop', BabyBackdropCategory::class, BabyBackdrop::class, 'backdrop', orientation: true);
         $this->seedVideoTemplates();
@@ -108,21 +108,24 @@ class DemoContentSeeder extends Seeder
 
     // ── Modules ──────────────────────────────────────────────────────────────
 
-    private function seedSimple(string $module, string $catModel, string $itemModel): void
+    /** Frame / Template: one record per category, each holding frame+thumbnail(+count) PAIRS. */
+    private function seedPairs(string $module, string $catModel, string $itemModel, string $noun, bool $withCount): void
     {
-        $cats = $this->makeCategories($module, $catModel, 5);
-        for ($i = 1; $i <= self::PER_MODULE; $i++) {
-            $cat  = $cats[($i - 1) % count($cats)];
-            $data = [
-                'category_id' => $cat->id,
-                'frame'       => $this->webp($module, $cat->name, 'frame', "frame-{$i}.webp", "F{$i}", $i),
-                'thumbnail'   => $this->webp($module, $cat->name, 'thumbnail', "thumb-{$i}.webp", "T{$i}", $i + 1, 200, 200),
-                'status'      => $i % 7 !== 0,
-            ];
-            if ($module === 'template') {
-                $data['count'] = ($i % 5) + 1;
+        $cats = $this->makeCategories($module, $catModel, self::PER_MODULE);
+        foreach ($cats as $i => $cat) {
+            $pairs = [];
+            $n = 3 + ($i % 4); // 3–6 each
+            for ($k = 1; $k <= $n; $k++) {
+                $pair = [
+                    'frame'     => $this->webp($module, $cat->name, 'frame', "{$noun}-{$k}.webp", 'F' . $k, $i + $k, 300, 400),
+                    'thumbnail' => $this->webp($module, $cat->name, 'thumbnail', "thumb-{$k}.webp", 'T' . $k, $i + $k + 1, 200, 266),
+                ];
+                if ($withCount) {
+                    $pair['count'] = ($k % 5) + 1;
+                }
+                $pairs[] = $pair;
             }
-            $itemModel::create($data);
+            $itemModel::create(['category_id' => $cat->id, 'images' => $pairs, 'status' => ($i + 1) % 7 !== 0]);
         }
     }
 
@@ -152,22 +155,6 @@ class DemoContentSeeder extends Seeder
                 'is_paid'      => $i % 3 === 0,
                 'status'       => $i % 7 !== 0,
             ]);
-        }
-    }
-
-    /** Frames: one record per category, each holding several frame+thumbnail PAIRS. */
-    private function seedFrames(): void
-    {
-        $cats = $this->makeCategories('frame', FrameCategory::class, self::PER_MODULE);
-        foreach ($cats as $i => $cat) {
-            $pairs = [];
-            $n = 3 + ($i % 4); // 3–6 frames each
-            for ($k = 1; $k <= $n; $k++) {
-                $frame = $this->webp('frame', $cat->name, 'frame', "frame-{$k}.webp", "F{$k}", $i + $k, 300, 400);
-                $thumb = $this->webp('frame', $cat->name, 'thumbnail', "thumb-{$k}.webp", "T{$k}", $i + $k + 1, 200, 266);
-                $pairs[] = ['frame' => $frame, 'thumbnail' => $thumb];
-            }
-            Frame::create(['category_id' => $cat->id, 'images' => $pairs, 'status' => ($i + 1) % 7 !== 0]);
         }
     }
 

@@ -100,9 +100,9 @@
                                                 $curl = "curl -X POST \"{$url}\" \\\n  -H \"Authorization: Bearer <token>\" \\\n  -H \"Accept: application/json\"";
                                                 foreach ($ep['params'] as $p) { $curl .= " \\\n  -F \"{$p['key']}={$p['example']}\""; }
                                             @endphp
-                                            <div class="position-relative">
+                                            <div class="code-wrap">
                                                 <pre class="json">{{ $curl }}</pre>
-                                                <button class="btn btn-sm btn-outline-light position-absolute top-0 end-0 m-2" data-copy="{{ $curl }}" title="Copy"><i class="bi bi-copy"></i></button>
+                                                <button type="button" class="code-copy" data-copy="{{ $curl }}" title="Copy cURL"><i class="bi bi-copy"></i><span>Copy</span></button>
                                             </div>
                                         </div>
                                     </div>

@@ -40,10 +40,12 @@
                                 </div>
                             </td>
                             <td>@include('partials.switch', ['url' => route('apps.toggle', $app->id), 'value' => $app->status])</td>
+                            @php $catTotal = array_sum(array_column($counts, 'count')); @endphp
                             <td>@include('partials.actions', [
                                 'edit' => route('apps.edit', $app->id),
                                 'delete' => route('apps.destroy', $app->id),
-                                'confirm' => 'Delete the app "' . $app->app_name . '"?',
+                                'confirm' => 'Deleting <b>' . e($app->app_name) . '</b> removes it from all its categories' . ($catTotal ? ', and <b>deletes the categories used only by it</b> (with their items and files)' : '') . '.',
+                                'confirm2' => 'Permanently delete the app <b>' . e($app->app_name) . '</b>' . ($catTotal ? ' and the data that belongs only to it' : '') . '? This cannot be undone.',
                             ])</td>
                         </tr>
                     @empty

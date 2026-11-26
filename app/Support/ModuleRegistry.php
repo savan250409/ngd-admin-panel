@@ -59,6 +59,7 @@ class ModuleRegistry
                 'item_title'      => 'Templates',
                 'item_singular'   => 'Template',
                 'api_items'       => 'getTemplatesByCategory',
+                'gallery'         => true,
             ],
             'dynamic-frame' => [
                 'title'           => 'Dynamic Frame',

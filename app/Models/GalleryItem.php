@@ -37,6 +37,12 @@ abstract class GalleryItem extends BaseItem
         return $this->imageUrls();
     }
 
+    /** Entries for the admin "View more" popup: [['frame'=>url|null,'thumbnail'=>url,'name'=>..], ...]. */
+    public function galleryPopup(): array
+    {
+        return array_map(fn ($u) => ['frame' => null, 'thumbnail' => $u, 'name' => ''], $this->imageUrls());
+    }
+
     public function toApiArray(): array
     {
         return [

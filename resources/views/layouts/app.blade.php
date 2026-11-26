@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="{{ asset('css/admin.css') }}?v=5" rel="stylesheet">
+    <link href="{{ asset('css/admin.css') }}?v=10" rel="stylesheet">
     @stack('styles')
 </head>
 <body>
@@ -95,7 +95,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="{{ asset('js/admin.js') }}?v=3"></script>
+<script src="{{ asset('js/admin.js') }}?v=4"></script>
 @if (config('admin.media_security'))
     <script src="{{ asset('js/media-protect.js') }}?v=3"></script>
 @endif

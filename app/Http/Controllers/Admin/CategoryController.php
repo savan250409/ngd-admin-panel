@@ -21,7 +21,7 @@ class CategoryController extends Controller
     public function index(Request $request, string $module): View
     {
         $cfg   = ModuleRegistry::get($module);
-        $query = $cfg['category_model']::query()->with('apps')->withCount('items')->latest('id');
+        $query = $cfg['category_model']::query()->with('apps')->withCount('items')->ordered();
 
         if (($s = $this->searchTerm($request)) !== '') {
             $query->where(function ($w) use ($s) {
@@ -43,7 +43,24 @@ class CategoryController extends Controller
             'module'     => $module,
             'categories' => $query->paginate($this->perPage($request))->withQueryString(),
             'apps'       => MobileApp::orderBy('app_name')->get(),
+            // For the "Index" (reorder) popup — the whole ordered list.
+            'allOrdered' => $cfg['category_model']::ordered()->get(['id', 'name', 'image']),
         ]);
+    }
+
+    /** Save the category order from the Index popup (sort_order = position, 1-based). */
+    public function reorder(Request $request, string $module): JsonResponse
+    {
+        $cfg = ModuleRegistry::get($module);
+        $ids = $request->input('order', []);
+        abort_unless(is_array($ids), 422);
+
+        $position = 1;
+        foreach ($ids as $id) {
+            $cfg['category_model']::where('id', (int) $id)->update(['sort_order' => $position++]);
+        }
+
+        return response()->json(['success' => true]);
     }
 
     public function create(string $module): View
@@ -122,16 +139,16 @@ class CategoryController extends Controller
         $cfg      = ModuleRegistry::get($module);
         $category = $cfg['category_model']::withCount('items')->findOrFail($id);
 
-        if ($category->items_count > 0) {
-            return back()->with('error', "This category still has {$category->items_count} " . strtolower($cfg['item_title']) . '. Delete them first.');
-        }
-
+        $count = $category->items_count;
+        // Cascade: remove every item of this category, then its files, pivot and the row.
+        $category->items()->delete();
         $category->apps()->detach();
-        // No items left, so the whole category folder (just the cover) can go.
-        Media::deleteDir('upload/' . $module . '/' . $category->folder());
+        Media::deleteDir('upload/' . $module . '/' . $category->folder()); // cover + all item files
         $category->delete();
 
-        return back()->with('success', 'Category deleted successfully.');
+        $suffix = $count > 0 ? " and its {$count} " . strtolower($count === 1 ? $cfg['item_singular'] : $cfg['item_title']) : '';
+
+        return back()->with('success', "Category{$suffix} deleted successfully.");
     }
 
     public function toggle(string $module, int $id): JsonResponse

@@ -18,9 +18,15 @@ abstract class BaseCategory extends Model
     /** @var class-string<BaseItem> */
     protected static string $itemModel;
 
-    protected $fillable = ['name', 'image', 'orientation', 'status'];
+    protected $fillable = ['name', 'image', 'orientation', 'status', 'sort_order'];
 
-    protected $casts = ['status' => 'boolean'];
+    protected $casts = ['status' => 'boolean', 'sort_order' => 'integer'];
+
+    /** Manual order first (0 = unordered → newest first). */
+    public function scopeOrdered(Builder $q): Builder
+    {
+        return $q->orderBy('sort_order')->orderByDesc('id');
+    }
 
     /** The apps this category is served to (one category can belong to many apps). */
     public function apps(): MorphToMany

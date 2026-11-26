@@ -35,15 +35,14 @@ return new class extends Migration
             $t->unique('category_id');
         });
 
-        // ── Template ─────────────────────────────────────────────────────────
+        // ── Template (gallery: one record per category, many frame+thumbnail+count) ──
         Schema::create('template_categories', fn (Blueprint $t) => Schemas::category($t));
         Schema::create('templates', function (Blueprint $t) {
             Schemas::itemBase($t, 'template_categories');
-            $t->string('frame');
-            $t->string('thumbnail');
-            $t->unsignedInteger('count')->default(1);
+            $t->json('images');
             $t->boolean('status')->default(true);
             $t->timestamps();
+            $t->unique('category_id');
         });
 
         // ── Dynamic Frame (zip + json, like ASM013 posts) ───────────────────

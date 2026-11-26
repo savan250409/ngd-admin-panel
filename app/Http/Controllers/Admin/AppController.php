@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Admin\Concerns\ListsRecords;
 use App\Http\Controllers\Controller;
 use App\Models\MobileApp;
+use App\Support\Media;
 use App\Support\ModuleRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -60,16 +61,29 @@ class AppController extends Controller
 
     public function destroy(int $id): RedirectResponse
     {
-        $app   = MobileApp::findOrFail($id);
-        $total = array_sum(array_column($this->categoryCounts()[$app->id] ?? [], 'count'));
+        $app = MobileApp::findOrFail($id);
 
-        if ($total > 0) {
-            return back()->with('error', "\"{$app->app_name}\" is assigned to {$total} categories. Remove it from them first.");
+        // Cascade: for every module, detach this app from its categories. A category
+        // left with no apps is exclusive to this app → delete it with its items + files.
+        $removed = 0;
+        foreach (ModuleRegistry::all() as $module => $cfg) {
+            $categories = $cfg['category_model']::whereHas('apps', fn ($a) => $a->where('apps.id', $app->id))->get();
+            foreach ($categories as $category) {
+                $category->apps()->detach($app->id);
+                if ($category->apps()->count() === 0) {
+                    $category->items()->delete();
+                    Media::deleteDir('upload/' . $module . '/' . $category->folder());
+                    $category->delete();
+                    $removed++;
+                }
+            }
         }
 
         $app->delete();
 
-        return back()->with('success', 'App deleted successfully.');
+        $suffix = $removed > 0 ? " and {$removed} " . ($removed === 1 ? 'category' : 'categories') . ' only it used' : '';
+
+        return back()->with('success', "App \"{$app->app_name}\"{$suffix} deleted successfully.");
     }
 
     public function toggle(int $id): JsonResponse

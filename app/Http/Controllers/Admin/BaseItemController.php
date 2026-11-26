@@ -79,7 +79,8 @@ abstract class BaseItemController extends Controller
 
     public function index(Request $request): View
     {
-        $query = $this->itemModel()::query()->with('category.apps')->latest('id');
+        // Newest added OR most recently edited shows first.
+        $query = $this->itemModel()::query()->with('category.apps')->orderByDesc('updated_at')->orderByDesc('id');
 
         if (($s = $this->searchTerm($request)) !== '') {
             $query->where(function ($w) use ($s) {

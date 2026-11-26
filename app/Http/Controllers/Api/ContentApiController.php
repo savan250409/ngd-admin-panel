@@ -32,7 +32,7 @@ class ContentApiController extends Controller
             ->whereHas('apps', fn ($a) => $a->where('apps.id', $app->id))
             ->active()
             ->withCount(['items as active_items_count' => fn ($q) => $q->where('status', true)])
-            ->latest('id')
+            ->ordered() // manual sequence from the Index popup (new categories first)
             ->get();
 
         // Each category also carries a preview of its latest 5 items.
@@ -51,14 +51,16 @@ class ContentApiController extends Controller
     /** The 5 most recent active items of a category (for the getCategories preview). */
     private function latestItems($category, string $module): array
     {
-        // Gallery modules (Frame, Baby Backdrop) keep one record per category → preview its last 5 images.
+        // Gallery modules (Frame, Baby Backdrop) keep one record per category → preview its first 5 images,
+        // in the exact order they are arranged in the editor (same order the admin list and items API show).
         if (!empty(ModuleRegistry::get($module)['gallery'])) {
             $record = $category->items()->active()->first();
 
-            return $record ? array_slice(array_reverse($record->apiImages()), 0, 5) : [];
+            return $record ? array_slice($record->apiImages(), 0, 5) : [];
         }
 
-        return $category->items()->active()->latest('id')->limit(5)->get()
+        // Newest added / most recently edited first — identical to the admin item list.
+        return $category->items()->active()->orderByDesc('updated_at')->orderByDesc('id')->limit(5)->get()
             ->map->toApiArray()->values()->all();
     }
 
@@ -85,7 +87,8 @@ class ContentApiController extends Controller
             return $this->fail('Category not found for this package.', 404);
         }
 
-        $items = $category->items()->active()->latest('id')->get();
+        // Same order as the admin item list: newest added / most recently edited first.
+        $items = $category->items()->active()->orderByDesc('updated_at')->orderByDesc('id')->get();
 
         // Gallery modules store one image list per category: return its flat image list
         // (backdrops → image URLs; frames → {frame_url, thumbnail_url} pairs).

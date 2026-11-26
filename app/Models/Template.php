@@ -2,24 +2,28 @@
 
 namespace App\Models;
 
-class Template extends BaseItem
+use App\Support\Media;
+
+/** Gallery of template entries (frame + thumbnail + count), one record per category. */
+class Template extends PairGalleryItem
 {
     protected static string $categoryModel = TemplateCategory::class;
-    protected $casts = ['status' => 'boolean', 'count' => 'integer'];
 
-    public function fileFields(): array
+    protected function apiPair(array $p): array
     {
-        return ['frame' => 'frame', 'thumbnail' => 'thumbnail'];
+        return [
+            'frame_url'     => Media::url($this->subDir('frame') . '/' . $p['frame']),
+            'thumbnail_url' => Media::url($this->subDir('thumbnail') . '/' . $p['thumbnail']),
+            'count'         => (int) ($p['count'] ?? 1),
+        ];
     }
 
     public function toApiArray(): array
     {
         return [
-            'id'            => $this->id,
-            'category_id'   => $this->category_id,
-            'frame_url'     => $this->fileUrl('frame'),
-            'thumbnail_url' => $this->fileUrl('thumbnail'),
-            'count'         => $this->count,
+            'id'          => $this->id,
+            'category_id' => $this->category_id,
+            'templates'   => $this->apiImages(),
         ];
     }
 }

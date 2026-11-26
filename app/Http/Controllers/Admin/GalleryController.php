@@ -106,12 +106,15 @@ abstract class GalleryController extends BaseItemController
             }
         }
         // Store new uploads (keeping their original names) in the new folder.
+        // Newest uploads go FIRST so the latest-added image shows first everywhere
+        // (admin list, getCategories preview and the items API all follow this order).
+        $fresh = [];
         foreach ($newFiles as $file) {
-            $keep[] = Media::store($file, $newDir);
+            $fresh[] = Media::store($file, $newDir);
         }
 
         $item->category_id = $newCat;
-        $item->images      = array_values($keep);
+        $item->images      = array_values(array_merge($fresh, $keep));
         $item->status      = $request->boolean('status');
         $item->save();
     }

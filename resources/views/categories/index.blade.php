@@ -10,6 +10,11 @@
                 <div class="sub">{{ $categories->total() }} total · a category can be served to several apps</div>
             </div>
             <div class="ms-auto d-flex gap-2">
+                @if ($allOrdered->count() > 1)
+                    <button type="button" class="btn btn-soft" data-bs-toggle="modal" data-bs-target="#orderModal" title="Set the order categories appear in the API">
+                        <i class="bi bi-sort-down me-1"></i>Index
+                    </button>
+                @endif
                 <a href="{{ route($module . '.items.index') }}" class="btn btn-soft"><i class="bi {{ $cfg['icon'] }} me-1"></i>{{ $cfg['item_title'] }}</a>
                 <a href="{{ route('categories.create', $module) }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add category</a>
             </div>
@@ -54,7 +59,8 @@
                             <td>@include('partials.actions', [
                                 'edit' => route('categories.edit', [$module, $c->id]),
                                 'delete' => route('categories.destroy', [$module, $c->id]),
-                                'confirm' => 'Delete the category "' . $c->name . '"?',
+                                'confirm' => 'Deleting <b>' . e($c->name) . '</b> will also delete <b>all its ' . strtolower($cfg['item_title']) . '</b> and their uploaded files.',
+                                'confirm2' => 'Permanently delete the <b>' . e($c->name) . '</b> category' . ($c->items_count ? ' and its <b>' . $c->items_count . '</b> ' . strtolower($c->items_count === 1 ? $cfg['item_singular'] : $cfg['item_title']) : '') . '? This cannot be undone.',
                             ])</td>
                         </tr>
                     @empty
@@ -66,4 +72,80 @@
             @include('partials.pager', ['p' => $categories])
         </div>
     </div>
+
+    {{-- ── Index / reorder popup ──────────────────────────────────── --}}
+    <div class="modal fade" id="orderModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 rounded-4 overflow-hidden">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-sort-down me-2"></i>Category order</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Drag the categories into the order you want. This is the order the API returns them in.</p>
+                    <ul class="order-list" id="order-list">
+                        @foreach ($allOrdered as $c)
+                            <li class="order-item" draggable="true" data-id="{{ $c->id }}">
+                                <span class="oi-handle"><i class="bi bi-grip-vertical"></i></span>
+                                @include('partials.thumb', ['url' => $c->imageUrl(), 'class' => 'thumb-sm'])
+                                <span class="oi-name">{{ $c->name }}</span>
+                                <span class="oi-pos"></span>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="order-save" data-url="{{ route('categories.reorder', $module) }}"><i class="bi bi-check2 me-1"></i>Save order</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    const list = document.getElementById('order-list');
+    if (!list) return;
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+    function renumber() {
+        [...list.querySelectorAll('.order-item')].forEach((li, i) => { li.querySelector('.oi-pos').textContent = i + 1; });
+    }
+
+    let dragged = null;
+    list.addEventListener('dragstart', (e) => { dragged = e.target.closest('.order-item'); dragged?.classList.add('dragging'); });
+    list.addEventListener('dragend', () => { dragged?.classList.remove('dragging'); dragged = null; renumber(); });
+    list.addEventListener('dragover', (e) => {
+        if (!dragged) return;
+        e.preventDefault();
+        const over = e.target.closest('.order-item');
+        if (!over || over === dragged) return;
+        const r = over.getBoundingClientRect();
+        over.parentNode.insertBefore(dragged, (e.clientY - r.top) > r.height / 2 ? over.nextSibling : over);
+    });
+
+    document.getElementById('order-save').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const order = [...list.querySelectorAll('.order-item')].map((li) => li.dataset.id);
+        btn.disabled = true;
+        try {
+            const res = await fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ order }),
+            });
+            if (!res.ok) throw new Error();
+            notify('success', 'Order saved');
+            setTimeout(() => location.reload(), 500);
+        } catch {
+            notify('error', 'Could not save the order');
+            btn.disabled = false;
+        }
+    });
+
+    renumber();
+})();
+</script>
+@endpush

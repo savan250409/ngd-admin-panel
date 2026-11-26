@@ -14,7 +14,6 @@
             <td><span class="chip"><i class="bi bi-aspect-ratio"></i>{{ $item->aspect_ratio }}</span></td>
             <td>
                 <span class="chip {{ $layers ? 'chip-ok' : 'chip-warn' }}">{{ $layers }} layers</span>
-                <div><a class="small" href="{{ $item->fileUrl('zip') }}">Download zip</a></div>
             </td>
             <td>@include('partials.switch', ['url' => route($module . '.items.toggle', $item->id), 'value' => $item->is_paid, 'field' => 'is_paid', 'on' => 'Paid', 'off' => 'Free'])</td>
             <td>@include('partials.switch', ['url' => route($module . '.items.toggle', $item->id), 'value' => $item->status])</td>

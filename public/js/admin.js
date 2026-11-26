@@ -106,22 +106,31 @@
         document.getElementById('list-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
-    /* ── Confirm before delete ──────────────────────────── */
+    /* ── Confirm before delete (optionally twice) ───────── */
     document.addEventListener('submit', (e) => {
         const form = e.target;
         if (!form.matches('form[data-confirm]') || form.dataset.confirmed) return;
         e.preventDefault();
-        Swal.fire({
+
+        const submit = () => { form.dataset.confirmed = '1'; form.submit(); };
+        const base = { icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#64748b', reverseButtons: true };
+
+        Swal.fire(Object.assign({
             title: 'Are you sure?',
-            text: form.dataset.confirm,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, delete',
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#64748b',
-            reverseButtons: true,
-        }).then((r) => {
-            if (r.isConfirmed) { form.dataset.confirmed = '1'; form.submit(); }
+            html: form.dataset.confirm,
+            confirmButtonText: form.dataset.confirm2 ? 'Yes, continue' : 'Yes, delete',
+        }, base)).then((r) => {
+            if (!r.isConfirmed) return;
+            // Second confirmation for destructive cascade deletes.
+            if (form.dataset.confirm2) {
+                Swal.fire(Object.assign({
+                    title: 'This cannot be undone',
+                    html: form.dataset.confirm2,
+                    confirmButtonText: 'Delete everything',
+                }, base)).then((r2) => { if (r2.isConfirmed) submit(); });
+            } else {
+                submit();
+            }
         });
     });
 

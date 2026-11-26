@@ -20,9 +20,12 @@ class Schemas
             $t->string('orientation', 20)->default('portrait');
         }
         $t->boolean('status')->default(true);
+        // Manual order (set from the "Index" popup). 0 = unordered → shows first (newest).
+        $t->unsignedInteger('sort_order')->default(0);
         $t->timestamps();
 
         $t->index('name');
+        $t->index('sort_order');
     }
 
     public static function itemBase(Blueprint $t, string $categoryTable): void

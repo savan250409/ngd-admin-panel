@@ -132,8 +132,8 @@ class ApiDocsController extends Controller
         $u = fn (string $p) => 'https://your-domain.com/upload/' . $module . '/' . $p;
 
         return match ($module) {
-            'frame'          => $u('Birthday/rose.webp'),
-            'template'       => ['id' => 5, 'category_id' => 1, 'frame_url' => $u('frames/collage.png'), 'thumbnail_url' => $u('thumbnails/collage.webp'), 'count' => 3],
+            'frame'          => ['frame_url' => $u('Birthday/frame/rose.webp'), 'thumbnail_url' => $u('Birthday/thumbnail/rose.webp')],
+            'template'       => ['frame_url' => $u('Birthday/frame/collage.webp'), 'thumbnail_url' => $u('Birthday/thumbnail/collage.webp'), 'count' => 3],
             'dynamic-frame'  => ['id' => 5, 'category_id' => 1, 'aspect_ratio' => '4:5', 'is_paid' => false, 'thumbnail_url' => $u('thumbnails/post.webp'), 'zip_url' => $u('zips/post.zip'), 'json' => ['layers' => ['...']]],
             'baby-backdrop'  => $u('Birthday/backdrop-1.webp'),
             'video-template' => ['id' => 5, 'category_id' => 1, 'title' => 'Happy Birthday', 'is_paid' => false, 'thumbnail_url' => $u('thumbnails/hb.webp'), 'zip_url' => $u('zips/hb.zip'), 'video_url' => $u('extracted/5-abc123/res/data.html'), 'width' => '1080', 'height' => '1920', 'total_image_count' => 4, 'total_editable' => 3, 'json' => ['elements' => ['...']]],

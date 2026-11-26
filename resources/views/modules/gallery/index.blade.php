@@ -1,4 +1,4 @@
-{{-- Shared list for gallery modules (Frame, Baby Backdrop): one row per category. --}}
+{{-- Shared list for gallery modules (Frame, Template, Baby Backdrop): one row per category. --}}
 @extends('layouts.module-index')
 
 @php $hasOrientation = !empty($cfg['category_orientation']); @endphp
@@ -20,18 +20,21 @@
             @endif
             <td>
                 <div class="strip">
-                    {{-- Only the first 3 are shown; the rest open in a popup. --}}
                     @foreach (array_slice($urls, 0, 3) as $url)
                         <img src="{{ $url }}" class="thumb" alt="" loading="lazy">
                     @endforeach
                     @if ($total > 3)
-                        <button type="button" class="btn btn-soft btn-sm see-more-btn"
+                        <button type="button" class="see-more-btn"
                                 data-see-more data-title="{{ $item->category?->name }} — {{ $total }} {{ \Illuminate\Support\Str::plural($noun, $total) }}">
-                            <i class="bi bi-grid-3x3-gap"></i> See more ({{ $total - 3 }})
+                            <i class="bi bi-grid-3x3-gap-fill"></i> View more
                         </button>
-                        {{-- Every image URL for this row (tokenised by the middleware), read on click. --}}
-                        <div class="more-frames d-none">@foreach ($urls as $url)<span>{{ $url }}</span>@endforeach</div>
                     @endif
+                    {{-- Every entry (frame + thumbnail URLs, tokenised by the middleware), read on click. --}}
+                    <div class="more-frames d-none">
+                        @foreach ($item->galleryPopup() as $entry)
+                            <span class="mf-item" data-frame="{{ $entry['frame'] }}" data-thumb="{{ $entry['thumbnail'] }}" data-name="{{ $entry['name'] ?? '' }}"></span>
+                        @endforeach
+                    </div>
                 </div>
                 <small class="text-muted">{{ $total }} {{ \Illuminate\Support\Str::plural($noun, $total) }}</small>
             </td>
@@ -49,7 +52,7 @@
 
 @push('scripts')
 <div class="modal fade" id="framesModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 rounded-4 overflow-hidden">
             <div class="modal-header">
                 <h5 class="modal-title fw-bold"><i class="bi {{ $cfg['icon'] }} me-2"></i><span class="t"></span></h5>
@@ -58,6 +61,7 @@
             <div class="modal-body">
                 <div class="frames-grid"></div>
             </div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
         </div>
     </div>
 </div>
@@ -67,20 +71,39 @@
     const modal = new bootstrap.Modal(modalEl);
     const grid = modalEl.querySelector('.frames-grid');
 
+    const cell = (url) => {
+        const d = document.createElement('div');
+        d.className = 'pc-cell';
+        if (url) { const img = new Image(); img.loading = 'lazy'; img.src = url; d.appendChild(img); }
+        return d;
+    };
+
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-see-more]');
         if (!btn) return;
-        const urls = [...btn.parentElement.querySelectorAll('.more-frames span')].map((s) => s.textContent.trim()).filter(Boolean);
+        const items = [...btn.parentElement.querySelectorAll('.more-frames .mf-item')];
         grid.innerHTML = '';
-        urls.forEach((u) => {
-            const cell = document.createElement('div');
-            cell.className = 'frame-cell';
-            const img = new Image();
-            img.loading = 'lazy';
-            img.alt = '';
-            img.src = u;
-            cell.appendChild(img);
-            grid.appendChild(cell);
+        items.forEach((it, i) => {
+            const frame = it.dataset.frame || '';
+            const thumb = it.dataset.thumb || '';
+            const name = it.dataset.name || '';
+            const card = document.createElement('div');
+            card.className = 'pop-card' + (frame ? '' : ' single');
+            const head = document.createElement('div'); head.className = 'pc-head'; head.textContent = 'Item #' + (i + 1);
+            const body = document.createElement('div'); body.className = 'pc-body';
+            if (frame) {
+                const s1 = document.createElement('div'); s1.className = 'pc-slot';
+                s1.appendChild(cell(frame));
+                const l1 = document.createElement('div'); l1.className = 'pc-label'; l1.textContent = 'Frame'; s1.appendChild(l1);
+                body.appendChild(s1);
+            }
+            const s2 = document.createElement('div'); s2.className = 'pc-slot';
+            s2.appendChild(cell(thumb));
+            const l2 = document.createElement('div'); l2.className = 'pc-label'; l2.textContent = frame ? 'Thumbnail' : 'Image'; s2.appendChild(l2);
+            body.appendChild(s2);
+            card.appendChild(head); card.appendChild(body);
+            if (name) { const n = document.createElement('div'); n.className = 'pc-name'; n.textContent = name; card.appendChild(n); }
+            grid.appendChild(card);
         });
         modalEl.querySelector('.modal-title .t').textContent = btn.dataset.title;
         modal.show();

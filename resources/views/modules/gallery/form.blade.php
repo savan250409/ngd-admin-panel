@@ -57,13 +57,16 @@
     }
 
     input.addEventListener('change', () => {
+        // New tiles go to the TOP so the latest-added image shows first (matches the saved order).
+        let anchor = gallery.firstChild;
         [...input.files].forEach((file) => {
             if (pending.some((p) => p.file === file)) return;
             const tile = document.createElement('div');
             tile.className = 'g-item new';
             tile.innerHTML = '<img alt=""><button type="button" class="g-del" title="Remove" data-remove><i class="bi bi-x-lg"></i></button><span class="g-tag">New</span>';
             tile.querySelector('img').src = URL.createObjectURL(file);
-            gallery.appendChild(tile);
+            gallery.insertBefore(tile, anchor);
+            anchor = tile.nextSibling;
             pending.push({ file, tile });
         });
         syncInput();

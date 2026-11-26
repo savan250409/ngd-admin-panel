@@ -40,6 +40,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('{module}/categories')->whereIn('module', ModuleRegistry::keys())
             ->name('categories.')->controller(CategoryController::class)->group(function () {
                 Route::get('/', 'index')->name('index');
+                Route::post('reorder', 'reorder')->name('reorder');
                 Route::get('create', 'create')->name('create');
                 Route::post('/', 'store')->name('store');
                 Route::get('{id}/edit', 'edit')->name('edit');
