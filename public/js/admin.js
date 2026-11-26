@@ -14,8 +14,19 @@
         if (flash.dataset.error) notify('error', flash.dataset.error);
     }
 
-    /* ── Mobile sidebar ─────────────────────────────────── */
+    /* ── Sidebar open / close ───────────────────────────── */
+    // On a phone the sidebar slides in over the page (side-open); on desktop the
+    // same button collapses it out of the way (side-collapsed, remembered per browser).
+    const isMobileNav = () => window.matchMedia('(max-width: 991.98px)').matches;
     document.addEventListener('click', (e) => {
+        if (e.target.closest('[data-sidebar-toggle]')) {
+            if (isMobileNav()) {
+                document.body.classList.toggle('side-open');
+            } else {
+                const collapsed = document.body.classList.toggle('side-collapsed');
+                try { localStorage.setItem('ngd-side-collapsed', collapsed ? '1' : '0'); } catch (_) {}
+            }
+        }
         if (e.target.closest('[data-sidebar-open]')) document.body.classList.add('side-open');
         if (e.target.closest('[data-sidebar-close]')) document.body.classList.remove('side-open');
     });

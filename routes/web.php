@@ -8,10 +8,15 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\SecureMediaController;
 use App\Http\Controllers\Admin\VideoTemplateController;
+use App\Http\Controllers\PublicMediaController;
 use App\Support\ModuleRegistry;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
+
+// Public media gate for the mobile APIs — streams an upload by its opaque token only
+// (no admin session). The API hands apps "/media?token=..." instead of real paths.
+Route::get('media', PublicMediaController::class)->name('public-media');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthController::class, 'show'])->name('login');

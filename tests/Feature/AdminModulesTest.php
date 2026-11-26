@@ -774,6 +774,38 @@ class AdminModulesTest extends TestCase
         $this->assertSame(array_column($frame->images, 'frame'), $itemSeq2); // new frame first, API agrees
     }
 
+    public function test_backdrop_order_controls_sequence_and_api(): void
+    {
+        $this->actingAs($this->admin);
+        $this->post('/baby-backdrop/categories', ['app_ids' => [$this->mobileApp->id], 'name' => 'Seq', 'status' => 1, 'orientation' => 'portrait', 'image' => $this->webp('cover')]);
+        $cat = \App\Models\BabyBackdropCategory::firstOrFail();
+
+        // Add two images: a, then b.
+        $this->post('/baby-backdrop/backdrops', ['category_id' => $cat->id, 'status' => 1, 'new_images' => [$this->webp('a'), $this->webp('b')]])
+            ->assertSessionDoesntHaveErrors();
+        $rec = \App\Models\BabyBackdrop::firstOrFail();
+        $this->assertSame(['a.webp', 'b.webp'], $rec->images);
+
+        // Edit with an explicit order: new image "c" first, then existing b (index 1), then a (index 0).
+        $this->put('/baby-backdrop/backdrops/' . $rec->id, [
+            'category_id' => $cat->id, 'status' => 1,
+            'new_images'  => [$this->webp('c')],
+            'order'       => ['n:0', 'e:1', 'e:0'],
+        ])->assertSessionDoesntHaveErrors();
+        $rec->refresh();
+        $this->assertSame(['c.webp', 'b.webp', 'a.webp'], $rec->images); // exact sequence the editor set
+
+        // The items API returns that same sequence.
+        $seq = array_map(fn ($u) => basename(urldecode(parse_url($u, PHP_URL_PATH))),
+            $this->postJson('/api/v1/baby-backdrop/getBackdropsByCategory', ['package_name' => 'com.test.demo', 'category_id' => $cat->id], $this->bearer())->json('data'));
+        $this->assertSame(['c.webp', 'b.webp', 'a.webp'], $seq);
+
+        // Every stored file still exists.
+        foreach ($rec->imageRelPaths() as $rel) {
+            $this->assertFileExists(public_path($rel));
+        }
+    }
+
     public function test_api_list_has_no_error_response_block(): void
     {
         $this->actingAs($this->admin);
@@ -793,6 +825,40 @@ class AdminModulesTest extends TestCase
         $this->get('/secure-media?token=tampered')->assertForbidden();
         auth()->logout();
         $this->get('/secure-media?token=' . $m[1])->assertRedirect('/login');
+    }
+
+    public function test_public_api_serves_media_through_token_gate_without_session(): void
+    {
+        // The app-facing gate is on for this test (off by default in phpunit.xml).
+        config(['admin.api_media_security' => true]);
+
+        // Admin creates a backdrop set with one real image.
+        $this->actingAs($this->admin);
+        $this->post('/baby-backdrop/categories', ['app_ids' => [$this->mobileApp->id], 'name' => 'Gate', 'status' => 1, 'orientation' => 'portrait', 'image' => $this->webp('cover')]);
+        $cat = \App\Models\BabyBackdropCategory::firstOrFail();
+        $this->post('/baby-backdrop/backdrops', ['category_id' => $cat->id, 'status' => 1, 'new_images' => [$this->webp('secret')]])
+            ->assertSessionDoesntHaveErrors();
+
+        // The API hands the app a "/media?token=..." URL — never the real "/upload/..." path or filename.
+        auth()->logout();
+        $urls = $this->postJson('/api/v1/baby-backdrop/getBackdropsByCategory',
+            ['package_name' => 'com.test.demo', 'category_id' => $cat->id], $this->bearer())->json('data');
+        $this->assertNotEmpty($urls);
+        $this->assertStringContainsString('/media?token=', $urls[0]);
+        $this->assertStringNotContainsString('/upload/', $urls[0]);
+        $this->assertStringNotContainsString('secret', $urls[0]);
+
+        // That gate streams the image to the app by token alone, with NO admin session.
+        // A native app image loader sends no Sec-Fetch header → it works.
+        parse_str((string) parse_url($urls[0], PHP_URL_QUERY), $q);
+        $this->get('/media?token=' . $q['token'])->assertOk()->assertHeader('Content-Type', 'image/webp');
+
+        // Opening the SAME URL in a browser tab (Sec-Fetch-Mode: navigate) is refused.
+        $this->get('/media?token=' . $q['token'], ['Sec-Fetch-Mode' => 'navigate'])->assertForbidden();
+
+        // A missing or tampered token is refused (what a pasted/guessed URL hits).
+        $this->get('/media')->assertForbidden();
+        $this->get('/media?token=tampered')->assertForbidden();
     }
 
     public function test_api_token_can_be_regenerated(): void

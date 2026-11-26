@@ -20,23 +20,30 @@
                 <div class="row g-3">
                     <div class="col-12">
                         @php $selectedApps = old('app_ids', $category->exists ? $category->apps->pluck('id')->all() : []); @endphp
-                        <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                             <label class="form-label mb-1">Apps <span class="req">*</span> <span class="text-muted fw-normal">— this category is served to every app you tick</span></label>
-                            @if ($apps->count() > 1)
-                                <div class="d-flex gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="chip chip-brand" id="app-count">0 selected</span>
+                                @if ($apps->count() > 1)
                                     <button type="button" class="btn btn-sm btn-link p-0" data-apps-all>Select all</button>
                                     <span class="text-muted">·</span>
                                     <button type="button" class="btn btn-sm btn-link p-0" data-apps-none>Clear</button>
-                                </div>
-                            @endif
+                                @endif
+                            </div>
                         </div>
                         @error('app_ids')<div class="text-danger small mb-1">{{ $message }}</div>@enderror
                         @if ($apps->isEmpty())
                             <div class="hint text-warning"><i class="bi bi-exclamation-triangle"></i> No apps yet — <a href="{{ route('apps.create') }}">add an app</a> first.</div>
                         @else
-                            <div class="app-picker" id="app-picker">
+                            @if ($apps->count() > 6)
+                                <div class="app-search">
+                                    <i class="bi bi-search"></i>
+                                    <input type="text" id="app-search" class="form-control" placeholder="Search app or package name…" autocomplete="off">
+                                </div>
+                            @endif
+                            <div class="app-picker {{ $apps->count() > 6 ? 'app-picker-scroll' : '' }}" id="app-picker">
                                 @foreach ($apps as $a)
-                                    <label class="app-option">
+                                    <label class="app-option" data-search="{{ strtolower($a->app_name . ' ' . $a->package_name) }}">
                                         <input type="checkbox" name="app_ids[]" value="{{ $a->id }}" @checked(in_array($a->id, $selectedApps))>
                                         <span class="app-option-body">
                                             <span class="app-option-name">{{ $a->app_name }}</span>
@@ -46,6 +53,7 @@
                                     </label>
                                 @endforeach
                             </div>
+                            <div id="app-noresult" class="text-muted small mt-2" hidden><i class="bi bi-search me-1"></i>No apps match your search.</div>
                         @endif
                     </div>
                     <div class="col-md-6">
@@ -89,9 +97,39 @@
     (function () {
         const picker = document.getElementById('app-picker');
         if (!picker) return;
-        const boxes = () => picker.querySelectorAll('input[type=checkbox]');
-        document.querySelector('[data-apps-all]')?.addEventListener('click', () => boxes().forEach((b) => (b.checked = true)));
-        document.querySelector('[data-apps-none]')?.addEventListener('click', () => boxes().forEach((b) => (b.checked = false)));
+        const boxes = () => [...picker.querySelectorAll('input[type=checkbox]')];
+        const countEl = document.getElementById('app-count');
+        const search = document.getElementById('app-search');
+        const noRes = document.getElementById('app-noresult');
+
+        function updateCount() {
+            if (countEl) countEl.textContent = boxes().filter((b) => b.checked).length + ' selected';
+        }
+
+        // Select all / Clear — "Select all" ticks only the apps currently shown by the search.
+        document.querySelector('[data-apps-all]')?.addEventListener('click', () => {
+            picker.querySelectorAll('.app-option:not([hidden]) input').forEach((b) => (b.checked = true));
+            updateCount();
+        });
+        document.querySelector('[data-apps-none]')?.addEventListener('click', () => {
+            boxes().forEach((b) => (b.checked = false));
+            updateCount();
+        });
+        picker.addEventListener('change', updateCount);
+
+        // Filter the picker as you type.
+        search?.addEventListener('input', () => {
+            const q = search.value.trim().toLowerCase();
+            let visible = 0;
+            picker.querySelectorAll('.app-option').forEach((opt) => {
+                const hit = !q || (opt.dataset.search || '').includes(q);
+                opt.hidden = !hit;
+                if (hit) visible++;
+            });
+            if (noRes) noRes.hidden = visible > 0;
+        });
+
+        updateCount();
     })();
 </script>
 @endpush

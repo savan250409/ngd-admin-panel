@@ -31,6 +31,7 @@ class AppController extends Controller
         return view('apps.index', [
             'apps'           => $query->paginate($this->perPage($request))->withQueryString(),
             'categoryCounts' => $this->categoryCounts(),
+            'appModules'     => $this->appModules(),
         ]);
     }
 
@@ -111,6 +112,28 @@ class AppController extends Controller
         }
 
         return $out;
+    }
+
+    /**
+     * Full breakdown for the "View all" popup:
+     * [app_id => [ ['title','icon','categories'=>[['name','status'], ...]], ... ]]
+     * Every module an app has categories in, with each category's name and status.
+     */
+    private function appModules(): array
+    {
+        $out = [];
+        foreach (ModuleRegistry::all() as $cfg) {
+            $cats = $cfg['category_model']::with('apps:id')->whereHas('apps')->orderBy('name')->get();
+            foreach ($cats as $cat) {
+                foreach ($cat->apps as $app) {
+                    $out[$app->id][$cfg['title']] ??= ['title' => $cfg['title'], 'icon' => $cfg['icon'], 'categories' => []];
+                    $out[$app->id][$cfg['title']]['categories'][] = ['name' => $cat->name, 'status' => (bool) $cat->status];
+                }
+            }
+        }
+
+        // Drop the module-title keys so each app maps to a plain ordered list.
+        return array_map('array_values', $out);
     }
 
     private function validated(Request $request, ?int $ignoreId): array

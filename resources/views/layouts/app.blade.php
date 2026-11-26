@@ -14,10 +14,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link href="{{ asset('css/admin.css') }}?v=10" rel="stylesheet">
+    <link href="{{ asset('css/admin.css') }}?v=14" rel="stylesheet">
     @stack('styles')
 </head>
 <body>
+{{-- Restore the desktop sidebar state before paint so it never flashes open. --}}
+<script>try { if (localStorage.getItem('ngd-side-collapsed') === '1') document.body.classList.add('side-collapsed'); } catch (e) {}</script>
 <div class="shell">
     {{-- ── Sidebar ─────────────────────────────────────────────── --}}
     <aside class="sidebar" id="sidebar">
@@ -60,7 +62,7 @@
     {{-- ── Main ────────────────────────────────────────────────── --}}
     <div class="main">
         <header class="topbar">
-            <button class="icon-btn d-lg-none" type="button" data-sidebar-open aria-label="Open menu"><i class="bi bi-list"></i></button>
+            <button class="icon-btn" type="button" data-sidebar-toggle aria-label="Toggle menu"><i class="bi bi-list"></i></button>
             <div class="topbar-title">
                 <div class="crumbs">@yield('crumbs', 'Overview')</div>
                 <h1>@yield('title', 'Dashboard')</h1>
@@ -95,7 +97,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="{{ asset('js/admin.js') }}?v=4"></script>
+<script src="{{ asset('js/admin.js') }}?v=5"></script>
 @if (config('admin.media_security'))
     <script src="{{ asset('js/media-protect.js') }}?v=3"></script>
 @endif

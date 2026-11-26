@@ -19,7 +19,7 @@
         @php $saved = $item->images ?? []; $savedUrls = $item->exists ? $item->imageUrls() : []; @endphp
         @foreach (old('existing', array_keys($saved)) as $idx)
             @continue(!isset($saved[(int) $idx]))
-            <div class="g-item" draggable="true" data-existing>
+            <div class="g-item" draggable="true" data-existing="{{ (int) $idx }}">
                 <input type="hidden" name="existing[]" value="{{ (int) $idx }}">
                 <img src="{{ $savedUrls[(int) $idx] ?? '' }}" alt="">
                 <button type="button" class="g-del" title="Remove" data-remove><i class="bi bi-x-lg"></i></button>
@@ -57,12 +57,13 @@
     }
 
     input.addEventListener('change', () => {
-        // New tiles go to the TOP so the latest-added image shows first (matches the saved order).
+        // New tiles go to the TOP so the latest-added image shows first (can still be dragged anywhere).
         let anchor = gallery.firstChild;
         [...input.files].forEach((file) => {
             if (pending.some((p) => p.file === file)) return;
             const tile = document.createElement('div');
             tile.className = 'g-item new';
+            tile.setAttribute('draggable', 'true');
             tile.innerHTML = '<img alt=""><button type="button" class="g-del" title="Remove" data-remove><i class="bi bi-x-lg"></i></button><span class="g-tag">New</span>';
             tile.querySelector('img').src = URL.createObjectURL(file);
             gallery.insertBefore(tile, anchor);
@@ -83,10 +84,11 @@
         refresh();
     });
 
-    // Drag & drop re-ordering of saved images.
+    // Drag & drop re-ordering of ALL tiles (saved + new). The order shown here is the
+    // order that gets saved and returned by the API.
     let dragged = null;
     gallery.addEventListener('dragstart', (e) => {
-        dragged = e.target.closest('.g-item[data-existing]');
+        dragged = e.target.closest('.g-item');
         if (!dragged) return e.preventDefault();
         dragged.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
@@ -95,11 +97,32 @@
     gallery.addEventListener('dragover', (e) => {
         if (!dragged) return;
         e.preventDefault();
-        const over = e.target.closest('.g-item[data-existing]');
+        const over = e.target.closest('.g-item');
         if (!over || over === dragged) return;
         const r = over.getBoundingClientRect();
         const after = (e.clientX - r.left) > r.width / 2;
         over.parentNode.insertBefore(dragged, after ? over.nextSibling : over);
+    });
+
+    // On submit, record the exact tile order as order[] tokens the server rebuilds from:
+    //   e:<savedIndex> for a kept image, n:<newFileIndex> for a fresh upload.
+    const form = document.getElementById('item-form');
+    form?.addEventListener('submit', () => {
+        syncInput();
+        form.querySelectorAll('input[data-order]').forEach((n) => n.remove());
+        [...gallery.querySelectorAll('.g-item')].forEach((tile) => {
+            let token = null;
+            if (tile.hasAttribute('data-existing')) {
+                token = 'e:' + tile.getAttribute('data-existing');
+            } else {
+                const j = pending.findIndex((p) => p.tile === tile);
+                if (j >= 0) token = 'n:' + j;
+            }
+            if (token === null) return;
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'order[]'; inp.value = token; inp.setAttribute('data-order', '');
+            form.appendChild(inp);
+        });
     });
 
     refresh();

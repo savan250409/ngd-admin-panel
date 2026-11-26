@@ -12,3 +12,18 @@
     Require all denied
 </FilesMatch>
 Options -Indexes -ExecCGI
+
+# ── Block direct access to real media (Option A) ───────────────────────────────
+# Real "/upload/..." URLs now return 403. Media is served only through the app's
+# "/media?token=..." gate, which reads the file from disk in PHP (HTTP rules below
+# do NOT affect that). A URL pasted into a browser therefore shows "Forbidden".
+# NOTE: only takes effect under Apache with AllowOverride enabled — the local
+# `php artisan serve` dev server ignores .htaccess.
+# TO REMOVE THIS FEATURE: delete this whole block (and set ADMIN_API_MEDIA_SECURITY=false).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>

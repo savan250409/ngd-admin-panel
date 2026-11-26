@@ -42,10 +42,16 @@
                                 @if ($c->apps->isEmpty())
                                     <span class="chip chip-warn" title="No app assigned — hidden from every API">Unassigned</span>
                                 @else
+                                    @php $catApps = $c->apps; $shownApps = $catApps->take(3); $moreApps = $catApps->count() - $shownApps->count(); @endphp
                                     <div class="app-chips">
-                                        @foreach ($c->apps as $a)
+                                        @foreach ($shownApps as $a)
                                             <span class="chip chip-brand" title="{{ $a->package_name }}">{{ $a->app_name }}</span>
                                         @endforeach
+                                        @if ($moreApps > 0)
+                                            <button type="button" class="chip chip-more" data-cat="{{ $c->name }}"
+                                                    data-apps="{{ json_encode($catApps->map(fn ($a) => ['name' => $a->app_name, 'package' => $a->package_name])->values()) }}"
+                                                    title="Show all {{ $catApps->count() }} apps">+{{ $moreApps }} more</button>
+                                        @endif
                                     </div>
                                 @endif
                             </td>
@@ -101,9 +107,50 @@
             </div>
         </div>
     </div>
+
+    {{-- ── Apps-for-a-category popup (when one category serves many apps) ── --}}
+    <div class="modal fade" id="catAppsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 rounded-4 overflow-hidden">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-phone me-2"></i><span id="ca-title">Apps</span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Every app this category is served to.</p>
+                    <div id="ca-body" class="app-list"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
+<script>
+(function () {
+    const modalEl = document.getElementById('catAppsModal');
+    if (!modalEl) return;
+    const modal = new bootstrap.Modal(modalEl);
+    const titleEl = document.getElementById('ca-title');
+    const bodyEl = document.getElementById('ca-body');
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip-more');
+        if (!btn) return;
+        let apps = [];
+        try { apps = JSON.parse(btn.dataset.apps || '[]'); } catch (_) {}
+        titleEl.textContent = `${btn.dataset.cat} · ${apps.length} apps`;
+        bodyEl.innerHTML = apps.map((a) =>
+            `<div class="app-row"><span class="ar-name">${esc(a.name)}</span><code class="ar-pkg">${esc(a.package)}</code></div>`
+        ).join('');
+        modal.show();
+    });
+})();
+</script>
 <script>
 (function () {
     const list = document.getElementById('order-list');

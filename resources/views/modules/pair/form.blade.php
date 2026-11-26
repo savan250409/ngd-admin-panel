@@ -22,7 +22,7 @@
 
     <div id="pe-rows" data-allow-drag>
         @foreach ($saved as $idx => $pair)
-            <div class="pe-row" draggable="true" data-row data-ref="{{ $idx }}">
+            <div class="pe-row {{ $hasCount ? 'has-count' : '' }}" draggable="true" data-row data-ref="{{ $idx }}">
                 <span class="pe-num"></span>
                 <input type="hidden" class="pe-slot" value="{{ $idx }}">
                 <label class="pe-box filled" title="Click to replace">
@@ -46,7 +46,7 @@
     <button type="button" class="btn btn-soft btn-sm mt-1" id="pe-add"><i class="bi bi-plus-lg me-1"></i>Add image</button>
 
     <template id="pe-row-tpl">
-        <div class="pe-row" draggable="true" data-row data-ref="new">
+        <div class="pe-row {{ $hasCount ? 'has-count' : '' }}" draggable="true" data-row data-ref="new">
             <span class="pe-num"></span>
             <input type="hidden" class="pe-slot" value="new">
             <label class="pe-box empty">

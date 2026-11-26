@@ -75,48 +75,94 @@ abstract class GalleryController extends BaseItemController
 
     protected function persist(Request $request, BaseItem $item): void
     {
-        $old     = $this->oldCategoryId($item);
-        $current = $item->images ?? [];
-        // "existing[]" holds positions in the saved list (in the new order), never names.
-        $keep = [];
-        foreach ((array) $request->input('existing', []) as $idx) {
-            $name = $current[(int) $idx] ?? null;
-            if ($name && !in_array($name, $keep, true)) {
-                $keep[] = $name;
-            }
-        }
-        $newFiles = $request->file('new_images', []);
+        $old      = $this->oldCategoryId($item);
+        $current  = $item->images ?? [];
+        $newCat   = $request->integer('category_id');
+        $oldDir   = $old ? $this->dir($old) : null;
+        $newDir   = $this->dir($newCat);
+        $newFiles = array_values($request->file('new_images', []));
 
-        if (count($keep) + count($newFiles) === 0) {
+        // Build the final image list in the EXACT order shown in the editor.
+        // Each entry is ['keep', savedName] or ['new', UploadedFile].
+        [$entries, $kept] = $this->orderedEntries($request, $current, $newFiles);
+
+        if (count($entries) === 0) {
             throw ValidationException::withMessages(['new_images' => "Add at least one {$this->noun} image."]);
         }
 
-        $newCat = $request->integer('category_id');
-        $oldDir = $old ? $this->dir($old) : null;
-        $newDir = $this->dir($newCat);
-
-        // Delete removed images (from their old folder).
-        foreach (array_diff($current, $keep) as $removed) {
+        // Delete images the user removed (from their old folder).
+        foreach (array_diff($current, $kept) as $removed) {
             Media::delete($oldDir ? 'upload/' . $oldDir . '/' . $removed : null);
         }
-        // Move kept images if the category changed.
-        if ($old && $old !== $newCat) {
-            foreach ($keep as $name) {
-                Media::move('upload/' . $oldDir . '/' . $name, 'upload/' . $newDir . '/' . $name);
+
+        // Materialise the list in order: move kept files on a category change, store new uploads.
+        $images = [];
+        foreach ($entries as [$type, $val]) {
+            if ($type === 'keep') {
+                if ($old && $old !== $newCat) {
+                    Media::move('upload/' . $oldDir . '/' . $val, 'upload/' . $newDir . '/' . $val);
+                }
+                $images[] = $val;
+            } else {
+                $images[] = Media::store($val, $newDir);
             }
-        }
-        // Store new uploads (keeping their original names) in the new folder.
-        // Newest uploads go FIRST so the latest-added image shows first everywhere
-        // (admin list, getCategories preview and the items API all follow this order).
-        $fresh = [];
-        foreach ($newFiles as $file) {
-            $fresh[] = Media::store($file, $newDir);
         }
 
         $item->category_id = $newCat;
-        $item->images      = array_values(array_merge($fresh, $keep));
+        $item->images      = array_values($images);
         $item->status      = $request->boolean('status');
         $item->save();
+    }
+
+    /**
+     * Resolve the ordered image list the editor submitted.
+     *
+     * Preferred scheme — "order[]" of tokens "e:<savedIndex>" / "n:<newFileIndex>" — lets the
+     * user drag existing AND new images into any sequence (that sequence is what the API returns).
+     * Fallback (no JS) — "existing[]" saved indexes, with new uploads placed first.
+     *
+     * @return array{0: array<int, array{0: string, 1: mixed}>, 1: array<int, string>}
+     */
+    private function orderedEntries(Request $request, array $current, array $newFiles): array
+    {
+        $entries = [];
+        $kept    = [];
+
+        if ($request->has('order')) {
+            foreach ((array) $request->input('order', []) as $tok) {
+                if (!is_string($tok)) {
+                    continue;
+                }
+                if (str_starts_with($tok, 'e:')) {
+                    $name = $current[(int) substr($tok, 2)] ?? null;
+                    if ($name !== null && !in_array($name, $kept, true)) {
+                        $kept[]    = $name;
+                        $entries[] = ['keep', $name];
+                    }
+                } elseif (str_starts_with($tok, 'n:')) {
+                    $j = (int) substr($tok, 2);
+                    if (isset($newFiles[$j])) {
+                        $entries[] = ['new', $newFiles[$j]];
+                    }
+                }
+            }
+
+            return [$entries, $kept];
+        }
+
+        // Fallback: newest uploads first, then kept existing images.
+        foreach ($newFiles as $file) {
+            $entries[] = ['new', $file];
+        }
+        foreach ((array) $request->input('existing', []) as $idx) {
+            $name = $current[(int) $idx] ?? null;
+            if ($name !== null && !in_array($name, $kept, true)) {
+                $kept[]    = $name;
+                $entries[] = ['keep', $name];
+            }
+        }
+
+        return [$entries, $kept];
     }
 
     protected function cleanup(BaseItem $item): void
