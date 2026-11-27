@@ -42,7 +42,13 @@ class AppController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        MobileApp::create($this->validated($request, null));
+        $data = $this->validated($request);
+
+        if ($warning = $this->duplicateWarning($request, null)) {
+            return back()->withInput()->with('app_exists', $warning);
+        }
+
+        MobileApp::create($data);
 
         return redirect()->route('apps.index')->with('success', 'App added successfully.');
     }
@@ -54,8 +60,14 @@ class AppController extends Controller
 
     public function update(Request $request, int $id): RedirectResponse
     {
-        $app = MobileApp::findOrFail($id);
-        $app->update($this->validated($request, $app->id));
+        $app  = MobileApp::findOrFail($id);
+        $data = $this->validated($request);
+
+        if ($warning = $this->duplicateWarning($request, $app->id)) {
+            return back()->withInput()->with('app_exists', $warning);
+        }
+
+        $app->update($data);
 
         return redirect()->route('apps.index')->with('success', 'App updated successfully.');
     }
@@ -136,21 +148,49 @@ class AppController extends Controller
         return array_map('array_values', $out);
     }
 
-    private function validated(Request $request, ?int $ignoreId): array
+    private function validated(Request $request): array
     {
         $data = $request->validate([
             'app_name'     => 'required|string|max:150',
             'package_name' => [
                 'required', 'string', 'max:191',
                 'regex:/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/',
-                Rule::unique('apps', 'package_name')->ignore($ignoreId),
             ],
+            'platform'     => ['required', Rule::in(['android', 'ios'])],
             'status'       => 'nullable|boolean',
         ], [
             'package_name.regex' => 'Package name must look like com.company.app',
+            'platform.required'  => 'Choose a platform.',
+            'platform.in'        => 'Platform must be Android or iOS.',
         ]);
         $data['status'] = $request->boolean('status');
 
         return $data;
+    }
+
+    /**
+     * A package name may be registered once PER PLATFORM. If this exact
+     * package + platform already exists (ignoring the row being edited),
+     * return a warning message to show as a SweetAlert; the app is not saved.
+     * The same package with a DIFFERENT platform is allowed and returns null.
+     */
+    private function duplicateWarning(Request $request, ?int $ignoreId): ?string
+    {
+        $package  = trim((string) $request->input('package_name'));
+        $platform = $request->input('platform');
+
+        $exists = MobileApp::where('package_name', $package)
+            ->where('platform', $platform)
+            ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
+            ->exists();
+
+        if (!$exists) {
+            return null;
+        }
+
+        $label = $platform === 'ios' ? 'iOS' : 'Android';
+
+        return "An app with package name \"{$package}\" already exists for {$label}. "
+            . 'The same package name can be used only once per platform.';
     }
 }

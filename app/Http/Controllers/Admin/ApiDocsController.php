@@ -95,7 +95,8 @@ class ApiDocsController extends Controller
                         'path'        => "{$key}/getCategories",
                         'description' => "All active {$cfg['title']} categories of the app that owns this package name. Each category includes a preview of its latest 5 items.",
                         'params'      => [
-                            ['key' => 'package_name', 'type' => 'string', 'example' => 'com.example.app'],
+                            ['key' => 'package_name', 'type' => 'string', 'example' => 'com.example.app', 'required' => true],
+                            ['key' => 'platform', 'type' => 'string · android | ios', 'example' => 'android', 'required' => false],
                         ],
                         'response'    => [
                             'status'  => true,
@@ -107,10 +108,9 @@ class ApiDocsController extends Controller
                     [
                         'name'        => "Get {$cfg['item_title']} By Category",
                         'path'        => "{$key}/{$cfg['api_items']}",
-                        'description' => "Active {$cfg['item_title']} of one category. The category must belong to the package's app.",
+                        'description' => "Active {$cfg['item_title']} of one category, addressed by category id alone (the id comes from getCategories).",
                         'params'      => [
-                            ['key' => 'package_name', 'type' => 'string', 'example' => 'com.example.app'],
-                            ['key' => 'category_id', 'type' => 'integer', 'example' => '1'],
+                            ['key' => 'category_id', 'type' => 'integer', 'example' => '1', 'required' => true],
                         ],
                         'response'    => [
                             'status'   => true,

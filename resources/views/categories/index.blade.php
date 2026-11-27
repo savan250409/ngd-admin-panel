@@ -89,7 +89,7 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">Drag the categories into the order you want. This is the order the API returns them in.</p>
-                    <ul class="order-list" id="order-list">
+                    <ul class="order-list" id="order-list" data-allow-drag>
                         @foreach ($allOrdered as $c)
                             <li class="order-item" draggable="true" data-id="{{ $c->id }}">
                                 <span class="oi-handle"><i class="bi bi-grip-vertical"></i></span>

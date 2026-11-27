@@ -50,7 +50,10 @@
             const ctx = canvas.getContext('2d');
             ctx.scale(dpr, dpr);
             drawCover(ctx, img, w, h, getComputedStyle(img).objectFit);
-            canvas.setAttribute('draggable', 'false');
+            // Inside a reorder list the tile is dragged by its image, so the canvas must
+            // stay draggable (an explicit draggable="false" child blocks the parent's drag).
+            // Everywhere else keep it non-draggable so the protected image can't be dragged out.
+            canvas.setAttribute('draggable', img.closest('[data-allow-drag]') ? 'true' : 'false');
             canvas.setAttribute('aria-label', img.alt || 'image');
             img.replaceWith(canvas);
         } catch (e) { /* keep original img */ }

@@ -8,7 +8,7 @@ class MobileApp extends Model
 {
     protected $table = 'apps';
 
-    protected $fillable = ['app_name', 'package_name', 'status'];
+    protected $fillable = ['app_name', 'package_name', 'platform', 'status'];
 
     protected $casts = ['status' => 'boolean'];
 }

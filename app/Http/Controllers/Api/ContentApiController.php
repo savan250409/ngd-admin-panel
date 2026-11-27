@@ -11,9 +11,10 @@ use Illuminate\Support\Facades\Validator;
 
 /**
  * Two POST endpoints per module:
- *   /api/v1/{module}/getCategories        body: package_name
- *   /api/v1/{module}/get...ByCategory     body: package_name, category_id
- * Only data belonging to the app with that package name is ever returned.
+ *   /api/v1/{module}/getCategories        body: package_name (+ optional platform)
+ *   /api/v1/{module}/get...ByCategory     body: category_id
+ * getCategories is app-scoped (only the package's own categories). The items
+ * endpoint is addressed by category id alone — the app already got its ids there.
  */
 class ContentApiController extends Controller
 {
@@ -21,7 +22,10 @@ class ContentApiController extends Controller
     {
         $cfg = ModuleRegistry::get($module);
 
-        if ($error = $this->validate($request, ['package_name' => 'required|string|max:191'])) {
+        if ($error = $this->validate($request, [
+            'package_name' => 'required|string|max:191',
+            'platform'     => 'nullable|string|in:android,ios',
+        ])) {
             return $error;
         }
         if (!$app = $this->app($request)) {
@@ -68,23 +72,20 @@ class ContentApiController extends Controller
     {
         $cfg = ModuleRegistry::get($module);
 
+        // Items are addressed by category id alone — no package name needed. The app
+        // already learned its category ids from getCategories (which IS app-scoped).
         if ($error = $this->validate($request, [
-            'package_name' => 'required|string|max:191',
-            'category_id'  => 'required|integer',
+            'category_id' => 'required|integer',
         ])) {
             return $error;
-        }
-        if (!$app = $this->app($request)) {
-            return $this->fail('Invalid package name.', 404);
         }
 
         $category = $cfg['category_model']::query()
             ->where('id', $request->integer('category_id'))
-            ->whereHas('apps', fn ($a) => $a->where('apps.id', $app->id))
             ->active()
             ->first();
         if (!$category) {
-            return $this->fail('Category not found for this package.', 404);
+            return $this->fail('Category not found.', 404);
         }
 
         // Same order as the admin item list: newest added / most recently edited first.
@@ -111,7 +112,14 @@ class ContentApiController extends Controller
 
     private function app(Request $request): ?MobileApp
     {
-        return MobileApp::where('package_name', trim($request->input('package_name')))->where('status', true)->first();
+        $platform = $request->input('platform');
+
+        return MobileApp::where('package_name', trim((string) $request->input('package_name')))
+            // When the app sends its platform, match that exact build; the same
+            // package may be registered separately for Android and iOS.
+            ->when(in_array($platform, ['android', 'ios'], true), fn ($q) => $q->where('platform', $platform))
+            ->where('status', true)
+            ->first();
     }
 
     private function validate(Request $request, array $rules): ?JsonResponse

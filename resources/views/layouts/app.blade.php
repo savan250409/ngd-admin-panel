@@ -99,7 +99,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="{{ asset('js/admin.js') }}?v=5"></script>
 @if (config('admin.media_security'))
-    <script src="{{ asset('js/media-protect.js') }}?v=3"></script>
+    <script src="{{ asset('js/media-protect.js') }}?v=4"></script>
 @endif
 @stack('scripts')
 </body>

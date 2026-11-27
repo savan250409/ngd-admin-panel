@@ -158,18 +158,60 @@ class AdminModulesTest extends TestCase
     {
         $this->actingAs($this->admin);
 
-        $this->post('/apps', ['app_name' => 'X', 'package_name' => 'not a package'])->assertSessionHasErrors('package_name');
-        $this->post('/apps', ['app_name' => 'X', 'package_name' => 'com.test.demo'])->assertSessionHasErrors('package_name');
+        // Bad package format and invalid platform are rejected inline.
+        $this->post('/apps', ['app_name' => 'X', 'package_name' => 'not a package', 'platform' => 'android'])->assertSessionHasErrors('package_name');
+        $this->post('/apps', ['app_name' => 'X', 'package_name' => 'com.test.new', 'platform' => 'windows'])->assertSessionHasErrors('platform');
 
-        $this->post('/apps', ['app_name' => 'New', 'package_name' => 'com.test.new', 'status' => 1])->assertRedirect('/apps');
+        // Same package + same platform as an existing app → warned (SweetAlert), not added.
+        $before = MobileApp::count();
+        $this->post('/apps', ['app_name' => 'Dup', 'package_name' => 'com.test.demo', 'platform' => 'android'])
+            ->assertRedirect()
+            ->assertSessionHas('app_exists')
+            ->assertSessionMissing('success');
+        $this->assertSame($before, MobileApp::count());
+
+        // Same package but a DIFFERENT platform → allowed.
+        $this->post('/apps', ['app_name' => 'Demo iOS', 'package_name' => 'com.test.demo', 'platform' => 'ios', 'status' => 1])->assertRedirect('/apps');
+        $this->assertDatabaseHas('apps', ['package_name' => 'com.test.demo', 'platform' => 'ios']);
+
+        $this->post('/apps', ['app_name' => 'New', 'package_name' => 'com.test.new', 'platform' => 'ios', 'status' => 1])->assertRedirect('/apps');
         $app = MobileApp::where('package_name', 'com.test.new')->firstOrFail();
+        $this->assertSame('ios', $app->platform);
 
         $this->get('/apps?search=new')->assertOk()->assertSee('com.test.new');
-        $this->put("/apps/{$app->id}", ['app_name' => 'Renamed', 'package_name' => 'com.test.new', 'status' => 0])->assertRedirect('/apps');
+        $this->put("/apps/{$app->id}", ['app_name' => 'Renamed', 'package_name' => 'com.test.new', 'platform' => 'android', 'status' => 0])->assertRedirect('/apps');
         $this->assertFalse($app->fresh()->status);
+        $this->assertSame('android', $app->fresh()->platform);
 
         $this->delete("/apps/{$app->id}")->assertSessionHas('success');
         $this->assertNull($app->fresh());
+    }
+
+    public function test_api_resolves_app_by_package_and_platform(): void
+    {
+        $this->actingAs($this->admin);
+
+        // Same package name registered separately for Android and iOS.
+        $android = MobileApp::create(['app_name' => 'Dual Android', 'package_name' => 'com.dual.app', 'platform' => 'android', 'status' => true]);
+        $ios     = MobileApp::create(['app_name' => 'Dual iOS', 'package_name' => 'com.dual.app', 'platform' => 'ios', 'status' => true]);
+
+        // One category per app (frame module).
+        $this->post('/frame/categories', ['app_ids' => [$android->id], 'name' => 'Android Cat', 'status' => 1, 'orientation' => 'portrait', 'image' => $this->webp()])->assertSessionDoesntHaveErrors();
+        $this->post('/frame/categories', ['app_ids' => [$ios->id], 'name' => 'iOS Cat', 'status' => 1, 'orientation' => 'portrait', 'image' => $this->webp()])->assertSessionDoesntHaveErrors();
+
+        // platform=android → only the Android app's category.
+        $this->postJson('/api/v1/frame/getCategories', ['package_name' => 'com.dual.app', 'platform' => 'android'], $this->bearer())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Android Cat');
+
+        // platform=ios → only the iOS app's category.
+        $this->postJson('/api/v1/frame/getCategories', ['package_name' => 'com.dual.app', 'platform' => 'ios'], $this->bearer())
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'iOS Cat');
+
+        // No platform → still resolves by package (backward compatible), returns the first match.
+        $this->postJson('/api/v1/frame/getCategories', ['package_name' => 'com.dual.app'], $this->bearer())->assertOk();
+
+        // Invalid platform → 422.
+        $this->postJson('/api/v1/frame/getCategories', ['package_name' => 'com.dual.app', 'platform' => 'windows'], $this->bearer())->assertStatus(422);
     }
 
     public function test_deleting_app_cascades_only_its_exclusive_data(): void
@@ -268,10 +310,14 @@ class AdminModulesTest extends TestCase
         $this->assertNotEmpty($res->json('data.0.items'));
         $this->assertLessThanOrEqual(5, count($res->json('data.0.items')));
 
-        // API: items of the category; another app's category is refused.
-        $items = $this->postJson("/api/v1/{$module}/{$cfg['api_items']}", ['package_name' => 'com.test.demo', 'category_id' => $category->id], $this->bearer())->assertOk();
+        // API: items are addressed by category id alone (no package name needed).
+        $items = $this->postJson("/api/v1/{$module}/{$cfg['api_items']}", ['category_id' => $category->id], $this->bearer())->assertOk();
         $items->assertJsonPath('status', true);
-        $this->postJson("/api/v1/{$module}/{$cfg['api_items']}", ['package_name' => 'com.test.demo', 'category_id' => $otherCategory->id], $this->bearer())->assertNotFound();
+        // Any active category is reachable by its id (items endpoint is not app-scoped).
+        $this->postJson("/api/v1/{$module}/{$cfg['api_items']}", ['category_id' => $otherCategory->id], $this->bearer())->assertOk();
+        // Unknown id → 404; missing id → 422; no token → 401.
+        $this->postJson("/api/v1/{$module}/{$cfg['api_items']}", ['category_id' => 999999], $this->bearer())->assertNotFound();
+        $this->postJson("/api/v1/{$module}/{$cfg['api_items']}", [], $this->bearer())->assertStatus(422);
         $this->postJson("/api/v1/{$module}/getCategories", ['package_name' => 'com.test.demo'])->assertUnauthorized();
 
         $this->assertModuleSpecifics($module, $item->fresh(), $items->json());

@@ -89,7 +89,8 @@
 
                                             <h4>Body</h4>
                                             @foreach ($ep['params'] as $p)
-                                                <div class="param"><code>{{ $p['key'] }}</code><span class="text-muted">{{ $p['type'] }}</span><span class="chip ms-auto">required</span></div>
+                                                @php $req = $p['required'] ?? true; @endphp
+                                                <div class="param"><code>{{ $p['key'] }}</code><span class="text-muted">{{ $p['type'] }}</span><span class="chip ms-auto {{ $req ? 'chip-warn' : 'chip-ok' }}">{{ $req ? 'required' : 'optional' }}</span></div>
                                             @endforeach
 
                                             <h4>Sample response</h4>

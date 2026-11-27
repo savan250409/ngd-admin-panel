@@ -25,7 +25,10 @@
                         @php $counts = $categoryCounts[$app->id] ?? []; @endphp
                         <tr>
                             <td class="id-badge">{{ $app->id }}</td>
-                            <td class="fw-semibold">{{ $app->app_name }}</td>
+                            <td class="fw-semibold">
+                                {{ $app->app_name }}
+                                <span class="text-muted small ms-1"><i class="bi bi-{{ $app->platform === 'ios' ? 'apple' : 'android2' }}"></i> {{ $app->platform === 'ios' ? 'iOS' : 'Android' }}</span>
+                            </td>
                             <td>
                                 <span class="mono">{{ $app->package_name }}</span>
                                 <button class="btn btn-sm btn-link p-0 ms-1 text-muted" data-copy="{{ $app->package_name }}" title="Copy"><i class="bi bi-copy"></i></button>

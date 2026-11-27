@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Route;
 /*
  | Every request needs:  Authorization: Bearer <token from the API List screen>
  | Two POST endpoints per module, e.g. for "frame":
- |   POST /api/v1/frame/getCategories          body: package_name
- |   POST /api/v1/frame/getFramesByCategory    body: package_name, category_id
+ |   POST /api/v1/frame/getCategories          body: package_name (+ optional platform)
+ |   POST /api/v1/frame/getFramesByCategory    body: category_id
  */
 Route::prefix('v1')->middleware(['api.token', 'throttle:240,1', 'secure.media:api'])->group(function () {
     foreach (ModuleRegistry::all() as $key => $cfg) {

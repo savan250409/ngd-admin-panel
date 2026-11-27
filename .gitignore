@@ -25,3 +25,7 @@ yarn-error.log
 # user uploads
 /public/upload/*
 !/public/upload/.htaccess
+
+# Generated API docs for developers (contain a live API token — keep out of git)
+/NGD-Frame-Template-API-iOS.html
+/NGD-Frame-Template-API-iOS.md
